@@ -1,77 +1,110 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createNote } from '@/lib/api';
+import { createNote } from '@/lib/api/notes';
+import { useNoteStore } from '@/lib/store/noteStore';
 import type { NoteTag } from '@/types/note';
 import css from './NoteForm.module.css';
 
 const tags: NoteTag[] = ['Todo', 'Work', 'Personal', 'Meeting', 'Shopping'];
 
-interface NoteFormProps {
-  onClose: () => void;
-}
-
-export default function NoteForm({ onClose }: NoteFormProps) {
+export default function NoteForm() {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tag, setTag] = useState<NoteTag>('Todo');
+  const draft = useNoteStore(state => state.draft);
+  const setDraft = useNoteStore(state => state.setDraft);
+  const clearDraft = useNoteStore(state => state.clearDraft);
 
   const { mutate, isPending } = useMutation({
     mutationFn: createNote,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      onClose();
+    onSuccess: async () => {
+      clearDraft();
+      await queryClient.invalidateQueries({
+        queryKey: ['notes'],
+      });
+      router.push('/notes/filter/all');
     },
   });
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = event.target;
 
-    if (!title.trim() || !content.trim()) {
+    setDraft({
+      [name]: value,
+    });
+  };
+
+  const formAction = (formData: FormData) => {
+    const title = String(formData.get('title') ?? '').trim();
+    const content = String(formData.get('content') ?? '').trim();
+    const tag = String(formData.get('tag') ?? 'Todo') as NoteTag;
+
+    if (!title || !content) {
       return;
     }
 
     mutate({
-      title: title.trim(),
-      content: content.trim(),
+      title,
+      content,
       tag,
     });
   };
 
   return (
-    <form className={css.form} onSubmit={handleSubmit}>
-      <input
-        className={css.input}
-        type="text"
-        value={title}
-        onChange={event => setTitle(event.target.value)}
-        placeholder="Title"
-      />
+    <form className={css.form} action={formAction}>
+      <label className={css.formGroup}>
+        Title
+        <input
+          className={css.input}
+          type="text"
+          name="title"
+          defaultValue={draft.title}
+          onChange={handleChange}
+          placeholder="Title"
+          required
+        />
+      </label>
 
-      <textarea
-        className={css.textarea}
-        value={content}
-        onChange={event => setContent(event.target.value)}
-        placeholder="Content"
-      />
+      <label className={css.formGroup}>
+        Content
+        <textarea
+          className={css.textarea}
+          name="content"
+          defaultValue={draft.content}
+          onChange={handleChange}
+          placeholder="Content"
+          rows={8}
+          required
+        />
+      </label>
 
-      <select
-        className={css.select}
-        value={tag}
-        onChange={event => setTag(event.target.value as NoteTag)}
-      >
-        {tags.map(tag => (
-          <option key={tag} value={tag}>
-            {tag}
-          </option>
-        ))}
-      </select>
+      <label className={css.formGroup}>
+        Tag
+        <select
+          className={css.select}
+          name="tag"
+          defaultValue={draft.tag}
+          onChange={handleChange}
+        >
+          {tags.map(tag => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className={css.actions}>
-        <button type="button" className={css.cancelButton} onClick={onClose}>
+        <button
+          type="button"
+          className={css.cancelButton}
+          onClick={() => router.back()}
+        >
           Cancel
         </button>
 
