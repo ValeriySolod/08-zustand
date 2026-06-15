@@ -45,13 +45,13 @@ export default function NotesClient({ tag }: NotesClientProps) {
       <div className={css.toolbar}>
         <SearchBox value={search} onChange={setSearch} />
 
-        {data && data.totalPages > 1 && (
-          <Pagination
-            pageCount={data.totalPages}
-            currentPage={page}
-            onPageChange={setPage}
-          />
-        )}
+      {data && data.totalPages > 1 && (
+  <Pagination
+    page={page}
+    totalPages={data.totalPages}
+    onPageChange={setPage}
+  />
+)}
 
         <Link href="/notes/action/create" className={css.button}>
           Create note +
